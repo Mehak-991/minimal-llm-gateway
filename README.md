@@ -1,11 +1,11 @@
 # Minimal LLM Gateway
 
-An HTTP gateway that sits securely between client applications and the Groq LLM API. The service proxies standard chat completion requests while seamlessly issuing virtual API keys, enforcing per-key token budgets, and persisting usage and cost metrics. Built for resilience, it includes a robust retry policy to shield clients from transient upstream timeouts and provider failures.
+A backend HTTP gateway that sits securely between client applications and the Groq LLM API. The service proxies standard chat completion requests while issuing virtual API keys, enforcing per-key token budgets, and persisting usage and cost metrics. Built for resilience, it includes a retry policy to shield clients from transient upstream timeouts and provider failures.
 
 ## Features
 - **HTTP Proxy:** 1-to-1 proxy of standard OpenAI `chat/completions` payload to Groq.
-- **Virtual API Keys:** Secure gateway-issued keys, hashed before database storage.
-- **Token Budgets:** Token budget enforcement per key.
+- **Virtual API Keys:** Gateway-issued keys, hashed before database storage.
+- **Token Budgets:** Token budget enforcement per key using database constraints.
 - **Usage & Cost Tracking:** Extracts and logs prompt, completion, and total tokens, estimating costs per request.
 - **Resilience:** Explicit 1-retry fallback policy for 5xx and timeout errors.
 - **Security:** Hides the upstream provider API credentials from the client.
@@ -21,7 +21,7 @@ FastAPI Gateway
   │
   ├── 1. Authenticate Gateway Key (SHA-256 hash lookup in PostgreSQL)
   │
-  ├── 2. Budget Reservation (Atomic reservation of maximum tokens)
+  ├── 2. Budget Reservation (Database reservation of maximum tokens)
   │      └─ Rejects if budget is exhausted (HTTP 429).
   │
   ├── 3. Forward Request (httpx AsyncClient -> Groq API)
@@ -98,10 +98,10 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 ## Authentication & Security
 - **Virtual Gateway API Keys:** Clients authenticate via standard `Bearer` tokens provided by the gateway. The gateway only stores the `SHA-256` hash of this token.
 - **Provider API Key Protection:** The upstream Groq API key remains entirely server-side. It is never passed back to the client or logged.
-- **Environment Isolation:** Secrets are rigorously excluded from version control via `.gitignore`. 
+- **Environment Isolation:** Secrets are excluded from version control via `.gitignore`. 
 
 ## Per-Key Token Budget
-Budgets are tracked in PostgreSQL using atomic constraints. A fixed reserve limit is applied to every request before network execution. If the user's `budget_tokens` falls below the reserve requirement, the request is bounced at the database level.
+Budgets are tracked in PostgreSQL. A fixed reserve limit is applied to every request before network execution. If the user's `budget_tokens` falls below the reserve requirement, the request is bounced at the database level.
 
 ## Usage & Cost Logging
 The API intercepts the JSON provider response, extracts the `"usage"` payload natively, computes pricing based on environment configurations, and inserts an audit log into the `usage_records` table mapping the cost to the virtual key hash.
@@ -112,7 +112,7 @@ The API intercepts the JSON provider response, extracts the `"usage"` payload na
 - HTTP 400-499 errors fail without retrying.
 
 ## Environment Configuration
-Configure using `.env`:
+Configuration is provided through environment variables. Configure using `.env`:
 ```ini
 GATEWAY_PORT=8000
 GATEWAY_ENV=development
@@ -155,7 +155,7 @@ pytest tests/test_fallback.py -v
 Uses standard PostgreSQL. No database migrations (`alembic`) are required for the base assignment—SQLAlchemy's `create_all()` orchestrates the schema identically on boot.
 
 ## Deployment
-The app is built to be deployed to a production environment.
+The application can be deployed to a platform that supports a Python/FastAPI service and PostgreSQL.
 - Requires an active PostgreSQL service bound to the `DATABASE_URL` environment variable.
 - Inject the `LLM_PROVIDER_API_KEY` into your host's environment settings.
 - Utilize the standard production start command, leaning on `$PORT` assignment:
@@ -165,10 +165,10 @@ The app is built to be deployed to a production environment.
 - The `/health` endpoint is available to bind to platform liveness checks.
 
 ## Design Scope
-This gateway is purposefully built as a minimalistic intern take-home project. In strict alignment with the assignment guidelines, complex stretch features such as frontends/dashboards, multi-tenancy models, internal caching layers, and deployment orchestration (Docker/K8s) were deliberately omitted.
+This gateway is purposefully built as a minimalistic intern take-home project. In alignment with the assignment guidelines, complex stretch features such as frontends/dashboards, multi-tenancy models, internal caching layers, and deployment orchestration (Docker/K8s) were deliberately omitted.
 
 ## Assignment Alignment
-This repository implements the required gateway functionality and is prepared for deployment, achieving core gateway proxy logic, PostgreSQL persistence, atomic budgeting, usage tracking, and resilience.
+The repository implements the core requirements of the Minimal LLM Gateway assignment, including proxying, virtual API keys, token budget enforcement, usage logging, and provider resilience.
 
 ## Documentation
 Additional architectural reasoning and execution summaries can be found in:
