@@ -2,6 +2,12 @@
 
 A backend HTTP gateway that sits securely between client applications and the Groq LLM API. The service proxies standard chat completion requests while issuing virtual API keys, enforcing per-key token budgets, and persisting usage and cost metrics. Built for resilience, it includes a retry policy to shield clients from transient upstream timeouts and provider failures.
 
+## Deployed Service
+
+**Live URL:** https://minimal-llm-gateway-0d93.onrender.com
+
+**Health Check:** https://minimal-llm-gateway-0d93.onrender.com/health
+
 ## Features
 - **HTTP Proxy:** 1-to-1 proxy of standard OpenAI `chat/completions` payload to Groq.
 - **Virtual API Keys:** Gateway-issued keys, hashed before database storage.
